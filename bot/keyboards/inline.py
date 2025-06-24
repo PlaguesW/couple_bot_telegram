@@ -25,7 +25,7 @@ def categories_menu(categories: list) -> InlineKeyboardMarkup:
     for category in categories:
         emoji = get_category_emoji(category)
         keyboard.append([InlineKeyboardButton(
-            text=f"{emoji} {category.title()}", 
+            text=f"{emoji} {category.title()}",
             callback_data=f"category_{category}"
         )])
     keyboard.append([InlineKeyboardButton(text="🎲 Случайная идея", callback_data="random_idea")])
@@ -36,7 +36,7 @@ def categories_menu(categories: list) -> InlineKeyboardMarkup:
 def propose_idea_buttons(idea_id: int) -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton(
-            text="💕 Предложить партнеру", 
+            text="💕 Предложить партнеру",
             callback_data=f"propose_{idea_id}"
         )],
         [InlineKeyboardButton(text="🎲 Другая идея", callback_data="daily_idea")],
@@ -72,3 +72,22 @@ def get_category_emoji(category: str) -> str:
         'общее': '⭐'
     }
     return emojis.get(category, '⭐')
+
+def get_pair_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для управления парой"""
+    keyboard = [
+        [InlineKeyboardButton(text="👥 Мои пары", callback_data="my_pairs")],
+        [InlineKeyboardButton(text="💕 Создать пару", callback_data="create_pair")],
+        [InlineKeyboardButton(text="🔗 Присоединиться к паре", callback_data="join_pair")],
+        [InlineKeyboardButton(text="💔 Покинуть пару", callback_data="leave_pair")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_join_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для присоединения к паре"""
+    keyboard = [
+        [InlineKeyboardButton(text="🔗 Ввести код пары", callback_data="enter_pair_code")],
+        [InlineKeyboardButton(text="📱 Поделиться своим кодом", callback_data="share_my_code")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)

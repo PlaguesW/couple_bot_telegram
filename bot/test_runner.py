@@ -34,9 +34,8 @@ def check_code_quality():
     print("📏 Проверка качества кода...")
     
     try:
-        result = subprocess.run([
-            'flake8', 'bot/', '--max-line-length=100', '--ignore=E501,W503'
-        ], capture_output=True, text=True)
+        result = subprocess.run(['flake8', '.'],
+                                capture_output=True, text=True)
         
         if result.returncode == 0:
             print("✅ Код соответствует стандартам")
@@ -54,13 +53,13 @@ def test_imports():
     print("📦 Проверка импортов...")
     
     modules_to_test = [
-        'bot.config',
-        'bot.database',
-        'bot.main',
-        'bot.handlers.start',
-        'bot.handlers.pairs',
-        'bot.handlers.ideas',
-        'bot.handlers.dates',
+        'config',
+        'database',
+        'main',
+        'handlers.start',
+        'handlers.pairs',
+        'handlers.ideas',
+        'handlers.dates',
     ]
     
     failed_imports = []

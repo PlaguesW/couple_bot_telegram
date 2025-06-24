@@ -18,6 +18,86 @@ class Database:
         if self.pool:
             await self.pool.close()
     
+    async def init_db(self):
+        """Инициализация базы данных"""
+        await self.connect()
+        await self.create_tables()
+    
+    async def create_tables(self):
+        """Создание таблиц в базе данных"""
+        async with self.pool.acquire() as conn:
+            # Создание таблицы пользователей
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    telegram_id BIGINT UNIQUE NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    username VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Создание таблицы пар
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS pairs (
+                    id SERIAL PRIMARY KEY,
+                    user1_id INTEGER REFERENCES users(id),
+                    user2_id INTEGER REFERENCES users(id),
+                    invite_code VARCHAR(6) UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Создание таблицы идей
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS ideas (
+                    id SERIAL PRIMARY KEY,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    category VARCHAR(100) NOT NULL,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Создание таблицы предложений свиданий
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS date_proposals (
+                    id SERIAL PRIMARY KEY,
+                    pair_id INTEGER REFERENCES pairs(id),
+                    idea_id INTEGER REFERENCES ideas(id),
+                    proposer_id INTEGER REFERENCES users(id),
+                    status VARCHAR(20) DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Добавляем базовые идеи, если таблица пустая
+            count = await conn.fetchval('SELECT COUNT(*) FROM ideas')
+            if count == 0:
+                await self.populate_initial_ideas(conn)
+    
+    async def populate_initial_ideas(self, conn):
+        """Заполнение базовых идей для свиданий"""
+        initial_ideas = [
+            ("Романтический ужин при свечах", "Приготовьте ужин дома при свечах с любимой музыкой", "романтика"),
+            ("Прогулка в парке", "Неспешная прогулка по красивому парку или скверу", "активность"),
+            ("Домашний кинотеатр", "Посмотрите фильм дома с попкорном и уютной атмосферой", "дом"),
+            ("Посещение музея", "Сходите в местный музей или галерею", "культура"),
+            ("Пикник на природе", "Организуйте пикник в живописном месте", "активность"),
+            ("Кулинарный мастер-класс дома", "Готовьте новое блюдо вместе", "дом"),
+            ("Концерт или театр", "Сходите на живое выступление", "культура"),
+            ("Спа-день дома", "Устройте релаксирующий день дома с масками и массажем", "релакс"),
+            ("Фотосессия", "Сделайте красивые фотографии друг друга", "творчество"),
+            ("Ужин в ресторане", "Попробуйте новую кухню в хорошем ресторане", "ресторан")
+        ]
+        
+        for title, description, category in initial_ideas:
+            await conn.execute(
+                "INSERT INTO ideas (title, description, category) VALUES ($1, $2, $3)",
+                title, description, category
+            )
+    
     # Users
     async def add_user(self, telegram_id: int, name: str, username: str = None) -> bool:
         """Add a new user to the database"""
@@ -32,7 +112,7 @@ class Database:
                 return False
     
     async def get_user(self, telegram_id: int) -> Optional[Dict[str, Any]]:
-        """GEtting user by Telegram ID"""
+        """Getting user by Telegram ID"""
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM users WHERE telegram_id = $1",
