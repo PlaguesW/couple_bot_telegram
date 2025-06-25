@@ -4,9 +4,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-
 from config import BOT_TOKEN
-from database import Database
+from database import db  
 
 # Импорт обработчиков
 from handlers import start, pairs, ideas, dates
@@ -30,7 +29,6 @@ async def main():
     
     # Инициализация базы данных
     try:
-        db = Database()
         await db.init_db()
         logging.info("Database initialized successfully")
     except Exception as e:
@@ -45,7 +43,6 @@ async def main():
     
     # Удаление webhook и запуск polling
     await bot.delete_webhook(drop_pending_updates=True)
-    
     logging.info("Bot started successfully")
     
     try:
@@ -54,6 +51,7 @@ async def main():
         logging.error(f"Error during polling: {e}")
     finally:
         await bot.session.close()
+        await db.disconnect()  
 
 if __name__ == '__main__':
     try:

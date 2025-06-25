@@ -1,93 +1,84 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Главное меню
-def main_menu() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton(text="💡 Идея дня", callback_data="daily_idea")],
-        [InlineKeyboardButton(text="💕 Предложить свидание", callback_data="propose_date")],
-        [InlineKeyboardButton(text="📝 Мои предложения", callback_data="my_proposals")],
+def main_menu():
+    """Главное меню бота"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💡 Получить идею", callback_data="get_idea")],
+        [InlineKeyboardButton(text="💌 Предложить свидание", callback_data="propose_date")],
+        [InlineKeyboardButton(text="📋 Мои предложения", callback_data="my_proposals")],
         [InlineKeyboardButton(text="📚 История свиданий", callback_data="date_history")],
-        [InlineKeyboardButton(text="👫 Моя пара", callback_data="pair_info")]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+        [InlineKeyboardButton(text="👥 Настройки пары", callback_data="pair_settings")]
+    ])
+    return keyboard
 
-# Меню для создания/присоединения к паре
-def pair_setup_menu() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton(text="🔗 Создать пару", callback_data="create_pair")],
-        [InlineKeyboardButton(text="💌 Присоединиться к паре", callback_data="join_pair")]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+def pair_setup_menu():
+    """Меню настройки пары"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🆕 Создать пару", callback_data="create_pair")],
+        [InlineKeyboardButton(text="🔗 Присоединиться к паре", callback_data="join_pair")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+    ])
+    return keyboard
 
-# Меню категорий идей
-def categories_menu(categories: list) -> InlineKeyboardMarkup:
-    keyboard = []
-    for category in categories:
-        emoji = get_category_emoji(category)
-        keyboard.append([InlineKeyboardButton(
-            text=f"{emoji} {category.title()}",
-            callback_data=f"category_{category}"
-        )])
-    keyboard.append([InlineKeyboardButton(text="🎲 Случайная идея", callback_data="random_idea")])
-    keyboard.append([InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_menu")])
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+def category_menu():
+    """Меню выбора категории идей"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎲 Случайная идея", callback_data="random_idea")],
+        [InlineKeyboardButton(text="🏠 Дома", callback_data="category_home")],
+        [InlineKeyboardButton(text="🌳 На улице", callback_data="category_outdoor")],
+        [InlineKeyboardButton(text="🎭 Развлечения", callback_data="category_entertainment")],
+        [InlineKeyboardButton(text="🍽️ Еда", callback_data="category_food")],
+        [InlineKeyboardButton(text="🎨 Творчество", callback_data="category_creative")],
+        [InlineKeyboardButton(text="💪 Спорт", callback_data="category_sport")],
+        [InlineKeyboardButton(text="🎓 Обучение", callback_data="category_learning")],
+        [InlineKeyboardButton(text="🌙 Романтика", callback_data="category_romantic")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
+    ])
+    return keyboard
 
-# Кнопки для предложения идеи
-def propose_idea_buttons(idea_id: int) -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton(
-            text="💕 Предложить партнеру",
-            callback_data=f"propose_{idea_id}"
-        )],
-        [InlineKeyboardButton(text="🎲 Другая идея", callback_data="daily_idea")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_menu")]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+def idea_action_keyboard(idea_id):
+    """Клавиатура действий с идеей"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💌 Предложить партнеру", callback_data=f"propose_idea_{idea_id}")],
+        [InlineKeyboardButton(text="🎲 Другая идея", callback_data="random_idea")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+    ])
+    return keyboard
 
-# Кнопки для ответа на предложение
-def proposal_response_buttons(proposal_id: int) -> InlineKeyboardMarkup:
-    keyboard = [
+def proposal_response_keyboard(proposal_id):
+    """Клавиатура ответа на предложение"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="✅ Принять", callback_data=f"accept_{proposal_id}"),
-            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_{proposal_id}")
+            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"decline_{proposal_id}")
+        ],
+        [InlineKeyboardButton(text="📋 Другие предложения", callback_data="my_proposals")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+    ])
+    return keyboard
+
+def back_to_menu_button():
+    """Простая кнопка возврата в меню"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+    ])
+    return keyboard
+
+def pair_settings_menu():
+    """Меню настроек пары"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👤 Информация о паре", callback_data="pair_info")],
+        [InlineKeyboardButton(text="💔 Покинуть пару", callback_data="leave_pair")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")]
+    ])
+    return keyboard
+
+def confirm_leave_pair_keyboard():
+    """Подтверждение выхода из пары"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Да, покинуть", callback_data="confirm_leave_pair"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data="pair_settings")
         ]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-# Кнопки навигации
-def back_to_menu_button() -> InlineKeyboardMarkup:
-    keyboard = [[InlineKeyboardButton(text="◀️ В главное меню", callback_data="back_to_menu")]]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-def get_category_emoji(category: str) -> str:
-    """Получение эмодзи для категории"""
-    emojis = {
-        'романтика': '💕',
-        'дом': '🏠',
-        'активность': '🏃',
-        'культура': '🎭',
-        'ресторан': '🍽️',
-        'творчество': '🎨',
-        'релакс': '🧘',
-        'общее': '⭐'
-    }
-    return emojis.get(category, '⭐')
-
-def get_pair_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура для управления парой"""
-    keyboard = [
-        [InlineKeyboardButton(text="👥 Мои пары", callback_data="my_pairs")],
-        [InlineKeyboardButton(text="💕 Создать пару", callback_data="create_pair")],
-        [InlineKeyboardButton(text="🔗 Присоединиться к паре", callback_data="join_pair")],
-        [InlineKeyboardButton(text="💔 Покинуть пару", callback_data="leave_pair")]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-def get_join_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура для присоединения к паре"""
-    keyboard = [
-        [InlineKeyboardButton(text="🔗 Ввести код пары", callback_data="enter_pair_code")],
-        [InlineKeyboardButton(text="📱 Поделиться своим кодом", callback_data="share_my_code")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_menu")]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    ])
+    return keyboard

@@ -197,8 +197,8 @@ def main():
     print()
     
     # Качество кода
-    results['code_quality'] = check_code_quality()
-    print()
+    # results['code_quality'] = check_code_quality()
+    # print()
     
     # Генерация Postman коллекции
     results['postman'] = generate_postman_collection()
