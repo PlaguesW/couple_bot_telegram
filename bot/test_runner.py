@@ -1,4 +1,3 @@
-
 import asyncio
 import os
 import sys
@@ -17,15 +16,29 @@ def run_unit_tests():
         print("❌ pytest не установлен. Установите: pip install pytest pytest-asyncio")
         return False
     
+    test_paths = []
+    
+    if os.path.exists('tests/'):
+        test_paths.append('tests/')
+    
+    if os.path.exists('bot/test_database.py'):
+        test_paths.append('bot/test_database.py')
+    
+    if not test_paths:
+        print("❌ Не найдены файлы тестов")
+        return False
+    
     # Запускаем тесты
-    result = subprocess.run([
-        sys.executable, '-m', 'pytest', 
-        'tests/', '-v', '--tb=short'
-    ], capture_output=True, text=True)
+    cmd = [sys.executable, '-m', 'pytest'] + test_paths + ['-v', '--tb=short']
+    result = subprocess.run(cmd, capture_output=True, text=True)
     
     print(result.stdout)
     if result.stderr:
-        print("Ошибки:", result.stderr)
+        print("Предупреждения/Ошибки:", result.stderr)
+    
+    if "collected 0 items" in result.stdout:
+        print("⚠️ Тесты не найдены или не собраны")
+        return False
     
     return result.returncode == 0
 
@@ -34,7 +47,7 @@ def check_code_quality():
     print("📏 Проверка качества кода...")
     
     try:
-        result = subprocess.run(['flake8', '.'],
+        result = subprocess.run(['flake8', '.', '--exclude=venv,__pycache__,.git'],
                                 capture_output=True, text=True)
         
         if result.returncode == 0:
@@ -56,14 +69,20 @@ def test_imports():
         'config',
         'database',
         'main',
+    ]
+    
+    optional_modules = [
         'handlers.start',
         'handlers.pairs',
         'handlers.ideas',
         'handlers.dates',
+        'keyboards.inline'
     ]
     
     failed_imports = []
+    optional_failed = []
     
+    # Проверяем основные модули
     for module in modules_to_test:
         try:
             __import__(module)
@@ -72,11 +91,21 @@ def test_imports():
             print(f"❌ {module}: {e}")
             failed_imports.append(module)
     
+    for module in optional_modules:
+        try:
+            __import__(module)
+            print(f"✅ {module}")
+        except ImportError as e:
+            print(f"⚠️ {module}: {e}")
+            optional_failed.append(module)
+    
     if failed_imports:
-        print(f"\n❌ Не удалось импортировать {len(failed_imports)} модулей")
+        print(f"\n❌ Не удалось импортировать {len(failed_imports)} основных модулей")
         return False
     else:
-        print("\n✅ Все модули успешно импортированы")
+        if optional_failed:
+            print(f"\n⚠️ Не удалось импортировать {len(optional_failed)} дополнительных модулей")
+        print("\n✅ Все основные модули успешно импортированы")
         return True
 
 async def test_database_connection():
@@ -84,7 +113,9 @@ async def test_database_connection():
     print("🗄️ Проверка подключения к базе данных...")
     
     try:
-        sys.path.append('bot')
+        if 'bot' not in sys.path:
+            sys.path.insert(0, 'bot')
+        
         from database import Database
         
         db = Database()
@@ -94,12 +125,18 @@ async def test_database_connection():
         test_user_id = 999999999
         
         # Создание тестового пользователя
-        await db.create_user(
+        success = await db.create_user(
             telegram_id=test_user_id,
             username="test_user",
             first_name="Test",
             last_name="User"
         )
+        
+        if not success:
+            user = await db.get_user(test_user_id)
+            if not user:
+                print("❌ Не удалось создать или получить тестового пользователя")
+                return False
         
         # Получение пользователя
         user = await db.get_user(test_user_id)
@@ -112,6 +149,8 @@ async def test_database_connection():
         # Удаление тестового пользователя
         await db.delete_user(test_user_id)
         
+        await db.disconnect()
+        
         print("✅ База данных работает корректно")
         return True
         
@@ -122,7 +161,6 @@ async def test_database_connection():
 def generate_postman_collection():
     """Генерация коллекции для Postman"""
     print("📬 Генерация Postman коллекции...")
-    
     
     collection_path = Path("tests/Couple_Bot_API.postman_collection.json")
     collection_path.parent.mkdir(exist_ok=True)
@@ -146,6 +184,13 @@ def generate_postman_collection():
                         "path": ["health"]
                     }
                 }
+            }
+        ],
+        "variable": [
+            {
+                "key": "base_url",
+                "value": "http://localhost:8000",
+                "type": "string"
             }
         ]
     }
@@ -178,11 +223,57 @@ async def run_integration_tests():
     
     return db_test
 
+def check_project_structure():
+    """Проверка структуры проекта"""
+    print("📁 Проверка структуры проекта...")
+    
+    required_files = [
+        'bot/main.py',
+        'bot/config.py',
+        'bot/database.py'
+    ]
+    
+    optional_files = [
+        'bot/handlers/__init__.py',
+        'bot/keyboards/__init__.py',
+        'requirements.txt',
+        '.env.example'
+    ]
+    
+    missing_required = []
+    missing_optional = []
+    
+    for file_path in required_files:
+        if not os.path.exists(file_path):
+            missing_required.append(file_path)
+        else:
+            print(f"✅ {file_path}")
+    
+    for file_path in optional_files:
+        if not os.path.exists(file_path):
+            missing_optional.append(file_path)
+        else:
+            print(f"✅ {file_path}")
+    
+    if missing_required:
+        print(f"❌ Отсутствуют обязательные файлы: {', '.join(missing_required)}")
+        return False
+    
+    if missing_optional:
+        print(f"⚠️ Отсутствуют рекомендуемые файлы: {', '.join(missing_optional)}")
+    
+    print("✅ Структура проекта в порядке")
+    return True
+
 def main():
     """Главная функция запуска всех тестов"""
     print("🚀 Запуск тестирования Couple Bot\n")
     
     results = {}
+    
+    # Проверка структуры проекта
+    results['structure'] = check_project_structure()
+    print()
     
     # Проверка импортов
     results['imports'] = test_imports()

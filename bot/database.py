@@ -89,7 +89,13 @@ class Database:
             ("Концерт или театр", "Сходите на живое выступление", "культура"),
             ("Спа-день дома", "Устройте релаксирующий день дома с масками и массажем", "релакс"),
             ("Фотосессия", "Сделайте красивые фотографии друг друга", "творчество"),
-            ("Ужин в ресторане", "Попробуйте новую кухню в хорошем ресторане", "ресторан")
+            ("Ужин в ресторане", "Попробуйте новую кухню в хорошем ресторане", "ресторан"),
+            ("Настольные игры", "Проведите вечер за любимыми настольными играми", "дом"),
+            ("Велопрогулка", "Покатайтесь на велосипедах по городу или парку", "активность"),
+            ("Кулинарные эксперименты", "Попробуйте приготовить блюдо новой кухни", "дом"),
+            ("Танцевальный вечер", "Устройте танцы дома под любимую музыку", "романтика"),
+            ("Книжный клуб на двоих", "Читайте одну книгу и обсуждайте", "культура"),
+            ("Йога вместе", "Занимайтесь йогой или медитацией", "релакс")
         ]
         
         for title, description, category in initial_ideas:
@@ -109,6 +115,30 @@ class Database:
                 )
                 return True
             except asyncpg.UniqueViolationError:
+                return False
+    
+    async def create_user(self, telegram_id: int, username: str = None, 
+                         first_name: str = None, last_name: str = None) -> bool:
+        """Create a new user (alias for add_user for test compatibility)"""
+        name_parts = []
+        if first_name:
+            name_parts.append(first_name)
+        if last_name:
+            name_parts.append(last_name)
+        name = " ".join(name_parts) if name_parts else username or "User"
+        
+        return await self.add_user(telegram_id, name, username)
+    
+    async def delete_user(self, telegram_id: int) -> bool:
+        """Delete a user from the database"""
+        async with self.pool.acquire() as conn:
+            try:
+                result = await conn.execute(
+                    "DELETE FROM users WHERE telegram_id = $1",
+                    telegram_id
+                )
+                return result != "DELETE 0"
+            except Exception:
                 return False
     
     async def get_user(self, telegram_id: int) -> Optional[Dict[str, Any]]:
@@ -183,6 +213,28 @@ class Database:
         
         return pair['user2_id'] if pair['user1_id'] == user_id else pair['user1_id']
     
+    async def leave_pair(self, user_id):
+        """Remove pair"""
+        async with self.pool.acquire() as conn:
+            pair = await conn.fetchrow(
+                "SELECT * FROM pairs WHERE user1_id = $1 OR user2_id = $1", user_id
+            )
+
+            if not pair:
+                return False
+
+            pair_id = pair['id']
+
+            await conn.execute("DELETE FROM date_proposals WHERE pair_id = $1", pair_id)
+
+            if pair['user1_id'] == user_id:
+                await conn.execute("DELETE FROM pairs WHERE id = $1", pair_id)
+            else:
+
+                await conn.execute("UPDATE pairs SET user2_id = NULL WHERE id = $1", pair_id)
+
+        return True
+    
     # Ideas
     async def get_random_idea(self) -> Optional[Dict[str, Any]]:
         """Get random active idea"""
@@ -209,6 +261,11 @@ class Database:
                 category
             )
             return [dict(row) for row in rows]
+    
+    async def get_random_idea_by_category(self, category: str) -> Optional[Dict[str, Any]]:
+        """Get random idea from specific category"""
+        ideas = await self.get_ideas_by_category(category)
+        return ideas[0] if ideas else None
     
     async def get_all_categories(self) -> List[str]:
         """Get all unique categories of ideas"""

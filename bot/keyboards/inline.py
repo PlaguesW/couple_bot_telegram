@@ -16,7 +16,7 @@ def pair_setup_menu():
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🆕 Создать пару", callback_data="create_pair")],
         [InlineKeyboardButton(text="🔗 Присоединиться к паре", callback_data="join_pair")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
     ])
     return keyboard
 
@@ -41,7 +41,7 @@ def idea_action_keyboard(idea_id):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💌 Предложить партнеру", callback_data=f"propose_idea_{idea_id}")],
         [InlineKeyboardButton(text="🎲 Другая идея", callback_data="random_idea")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
     ])
     return keyboard
 
@@ -53,14 +53,14 @@ def proposal_response_keyboard(proposal_id):
             InlineKeyboardButton(text="❌ Отклонить", callback_data=f"decline_{proposal_id}")
         ],
         [InlineKeyboardButton(text="📋 Другие предложения", callback_data="my_proposals")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
     ])
     return keyboard
 
 def back_to_menu_button():
     """Простая кнопка возврата в меню"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
     ])
     return keyboard
 
@@ -69,7 +69,7 @@ def pair_settings_menu():
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Информация о паре", callback_data="pair_info")],
         [InlineKeyboardButton(text="💔 Покинуть пару", callback_data="leave_pair")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")]
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
     ])
     return keyboard
 

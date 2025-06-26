@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from database import db
-from keyboards.inline import main_menu, back_to_menu_button, proposal_response_keyboard
+from keyboards.inline import main_menu, back_to_menu_button, proposal_response_keyboard, pair_settings_menu, confirm_leave_pair_keyboard
 
 router = Router()
 
@@ -129,6 +129,81 @@ async def accept_proposal_handler(callback: CallbackQuery):
             
     except Exception as e:
         await callback.answer(f"Ошибка при принятии предложения: {e}", show_alert=True)
+
+@router.callback_query(F.data == "pair_info")
+async def show_pair_info(callback: CallbackQuery):
+    """Показываем информацию о текущей паре"""
+    user = await db.get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("Ошибка: пользователь не найден", show_alert=True)
+        return
+
+    pair = await db.get_user_pair(user['id'])
+    if not pair or not pair['user2_id']:
+        await callback.answer("Вы не состоите ни в одной паре", show_alert=True)
+        return
+
+    partner = await db.get_user_by_id(pair['user2_id'])
+
+    await callback.message.edit_text(
+        "👥 Информация о паре:\n\n"
+        f"🫂 Вы: {user['name']} (@{user['username']})\n"
+        f"❤️ Партнёр: {partner['name']} (@{partner['username']})\n"
+        f"📅 Создана: {pair['created_at'].strftime('%d.%m.%Y %H:%M')}\n\n"
+        "Что хотите сделать?",
+        reply_markup=pair_settings_menu()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "leave_pair")
+async def leave_pair_confirm(callback: CallbackQuery):
+    """Запрашиваем подтверждение перед выходом из пары"""
+    await callback.message.edit_text(
+        "⚠️ Вы уверены, что хотите покинуть пару?\n"
+        "Это действие нельзя отменить.",
+        reply_markup=confirm_leave_pair_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "confirm_leave_pair")
+async def confirm_leave_pair(callback: CallbackQuery):
+    """Подтверждение выхода из пары"""
+    user = await db.get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("Ошибка: пользователь не найден", show_alert=True)
+        return
+
+    pair = await db.get_user_pair(user['id'])
+    if not pair or not pair['user2_id']:
+        await callback.answer("Вы не состоите ни в одной паре", show_alert=True)
+        return
+
+    await db.leave_pair(user['id'])
+
+    await callback.message.edit_text(
+        "💔 Вы успешно покинули пару.\n\n"
+        "Теперь вы можете создать новую пару или присоединиться к существующей.",
+        reply_markup=main_menu()
+    )
+
+    # Оповещаем партнёра
+    try:
+        from bot.config import BOT_TOKEN
+        from aiogram import Bot
+
+        bot = Bot(token=BOT_TOKEN)
+        partner_id = await db.get_partner_id(user['id'])
+        if partner_id:
+            await bot.send_message(
+                partner_id,
+                "💔 Ваш партнер покинул пару.\n\n"
+                "Вы больше не состоите в паре."
+            )
+        await bot.session.close()
+    except Exception as e:
+        print(f"Не удалось отправить уведомление о выходе из пары: {e}")
+
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("decline_"))
 async def decline_proposal_handler(callback: CallbackQuery):

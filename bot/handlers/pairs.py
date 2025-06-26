@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from database import db
-from keyboards.inline import main_menu, pair_setup_menu, back_to_menu_button
+from keyboards.inline import main_menu, pair_setup_menu, back_to_menu_button, pair_settings_menu, confirm_leave_pair_keyboard
 
 router = Router()
 
@@ -46,6 +46,16 @@ async def create_pair_handler(callback: CallbackQuery, state: FSMContext):
         
     except Exception as e:
         await callback.answer(f"Ошибка при создании пары: {e}", show_alert=True)
+
+@router.callback_query(F.data == "pair_settings")
+async def show_pair_settings(callback: CallbackQuery):
+    """Показываем меню настроек пары"""
+    await callback.message.edit_text(
+        "👥 Настройки вашей пары:\n\n"
+        "Выберите действие:",
+        reply_markup=pair_settings_menu()
+    )
+    await callback.answer()
 
 @router.callback_query(F.data == "join_pair")
 async def join_pair_handler(callback: CallbackQuery, state: FSMContext):
