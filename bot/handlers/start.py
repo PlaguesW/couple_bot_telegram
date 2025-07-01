@@ -1,121 +1,120 @@
-from aiogram import Router, types
-from aiogram.filters import Command
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
-from loguru import logger
+from aiogram.fsm.state import State, StatesGroup
 
-from bot.services.api_client import api_client
-from bot.keyboards.inline import get_main_menu, get_back_keyboard
+from api_client import api_client
+from keyboards.main_menu import get_main_menu
+from keyboards.inline import get_join_pair_keyboard
 
 router = Router()
 
+class PairJoining(StatesGroup):
+    waiting_for_code = State()
 
-@router.message(Command("start"))
-async def cmd_start(message: types.Message, state: FSMContext):
-    """/start - function to handle the start command"""
+@router.message(CommandStart())
+async def start_handler(message: Message, state: FSMContext):
+    """Обработчик команды /start"""
     await state.clear()
     
-    user_id = message.from_user.id
-    username = message.from_user.username
+    # Проверяем, есть ли пользователь в системе
+    user_response = await api_client.get_user(message.from_user.id)
     
-    # Check if user already exists
-    user = await api_client.get_user_by_telegram_id(user_id)
+    if "error" in user_response:
+        # Создаем нового пользователя
+        create_response = await api_client.create_user(
+            telegram_id=message.from_user.id,
+            username=message.from_user.username or "",
+            first_name=message.from_user.first_name or ""
+        )
+        
+        if "error" in create_response:
+            await message.answer("❌ Произошла ошибка при регистрации. Попробуйте позже.")
+            return
     
-    if user:
-        # User is already registered
+    # Проверяем, есть ли у пользователя пара
+    pair_response = await api_client.get_user_pair(message.from_user.id)
+    
+    if "error" not in pair_response and pair_response:
         await message.answer(
-            f"Привет, {user.name}! 👋\n\n"
-            "Добро пожаловать обратно в бот для пар! 💕\n"
-            "Выбери, что хочешь сделать:",
+            f"👋 С возвращением! Вы уже в паре.\n\n"
+            f"🆔 Код пары: <code>{pair_response['code']}</code>",
             reply_markup=get_main_menu()
         )
     else:
-        # New user, prompt registration
         await message.answer(
-            f"Привет, {message.from_user.first_name or 'друг'}! 👋\n\n"
-            "Добро пожаловать в бот для пар! 💕\n\n"
-            "Этот бот поможет тебе:\n"
-            "• Создать пару с партнером\n"
-            "• Найти идеи для свиданий\n"
-            "• Планировать романтические встречи\n\n"
-            "Для начала тебе нужно зарегистрироваться. "
-            "Нажми на кнопку ниже, чтобы продолжить! ⬇️",
-            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="📝 Зарегистрироваться", callback_data="start_registration")]
-            ])
+            "👋 Добро пожаловать в Couple Bot!\n\n"
+            "🔹 Создайте пару или присоединитесь к существующей",
+            reply_markup=get_join_pair_keyboard()
         )
 
+@router.callback_query(F.data == "create_pair")
+async def create_pair_handler(callback: CallbackQuery):
+    """Создание новой пары"""
+    response = await api_client.create_pair(callback.from_user.id)
+    
+    if "error" in response:
+        await callback.message.edit_text(
+            f"❌ Ошибка создания пары: {response['error']}"
+        )
+        return
+    
+    await callback.message.edit_text(
+        f"✅ Пара создана!\n\n"
+        f"🆔 Код для партнера: <code>{response['code']}</code>\n\n"
+        f"Отправьте этот код своему партнеру, чтобы он мог присоединиться к паре.",
+        reply_markup=get_main_menu()
+    )
+
+@router.callback_query(F.data == "join_pair")
+async def join_pair_start(callback: CallbackQuery, state: FSMContext):
+    """Начало процесса присоединения к паре"""
+    await state.set_state(PairJoining.waiting_for_code)
+    await callback.message.edit_text(
+        "🔤 Введите код пары, который получили от партнера:"
+    )
+
+@router.message(PairJoining.waiting_for_code)
+async def join_pair_by_code(message: Message, state: FSMContext):
+    """Присоединение к паре по коду"""
+    code = message.text.strip().upper()
+    
+    response = await api_client.join_pair(code, message.from_user.id)
+    
+    if "error" in response:
+        await message.answer(
+            f"❌ {response['error']}\n\n"
+            f"Попробуйте еще раз или нажмите /start для возврата в главное меню."
+        )
+        return
+    
+    await state.clear()
+    await message.answer(
+        "✅ Успешно присоединились к паре!\n\n"
+        "Теперь вы можете предлагать свидания друг другу! 💕",
+        reply_markup=get_main_menu()
+    )
 
 @router.message(Command("help"))
-async def cmd_help(message: types.Message):
-    """/help - function to show help information"""
+async def help_handler(message: Message):
+    """Справка по боту"""
     help_text = """
-🤖 <b>Помощь по боту для пар</b>
+🤖 <b>Couple Bot - Помощник для пар</b>
 
-<b>Основные функции:</b>
-👫 <b>Создание пары</b> - объединение с партнером
-💡 <b>Идеи для свиданий</b> - получить вдохновение
-💕 <b>Предложение свидания</b> - пригласить на встречу
-📋 <b>Мои свидания</b> - история и планы
-
-<b>Команды:</b>
-/start - Главное меню
+<b>Основные команды:</b>
+/start - Запуск бота
 /help - Эта справка
-/menu - Показать главное меню
 
-<b>Как пользоваться:</b>
-1️⃣ Сначала зарегистрируйся
-2️⃣ Создай пару с партнером
-3️⃣ Получай идеи и планируй свидания!
+<b>Как использовать:</b>
+1️⃣ Один партнер создает пару и получает код
+2️⃣ Второй партнер присоединяется по коду
+3️⃣ Получайте идеи и предлагайте свидания!
 
-❓ <b>Нужна помощь?</b> Напиши @your_support_username
+<b>Возможности:</b>
+💡 Случайные идеи для свиданий
+📝 Предложения свиданий партнеру
+✅ Принятие/отклонение предложений
+📚 История ваших свиданий
     """
-    
-    await message.answer(help_text, parse_mode="HTML", reply_markup=get_back_keyboard())
-
-
-@router.message(Command("menu"))
-async def cmd_menu(message: types.Message, state: FSMContext):
-    """show main menu"""
-    await state.clear()
-    
-    user = await api_client.get_user_by_telegram_id(message.from_user.id)
-    
-    if user:
-        await message.answer(
-            "📋 <b>Главное меню</b>\n\n"
-            "Выбери нужное действие:",
-            parse_mode="HTML",
-            reply_markup=get_main_menu()
-        )
-    else:
-        await message.answer(
-            "Сначала нужно зарегистрироваться! Используй команду /start",
-            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="📝 Зарегистрироваться", callback_data="start_registration")]
-            ])
-        )
-
-
-@router.callback_query(lambda c: c.data == "back_to_menu")
-async def back_to_menu(callback: types.CallbackQuery, state: FSMContext):
-    """return to main menu from any state"""
-    await state.clear()
-    
-    user = await api_client.get_user_by_telegram_id(callback.from_user.id)
-    
-    if user:
-        await callback.message.edit_text(
-            "📋 <b>Главное меню</b>\n\n"
-            "Выбери нужное действие:",
-            parse_mode="HTML",
-            reply_markup=get_main_menu()
-        )
-    else:
-        await callback.message.edit_text(
-            "Сначала нужно зарегистрироваться!",
-            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="📝 Зарегистрироваться", callback_data="start_registration")]
-            ])
-        )
-    
-    await callback.answer()
+    await message.answer(help_text)
