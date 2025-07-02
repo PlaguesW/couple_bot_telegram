@@ -20,6 +20,7 @@ async def start_handler(message: Message, state: FSMContext):
     
     # Проверяем, есть ли пользователь в системе
     user_response = await api_client.get_user(message.from_user.id)
+    print(f"Bot: get_user response: {user_response}")
     
     if "error" in user_response:
         # Создаем нового пользователя
@@ -28,6 +29,7 @@ async def start_handler(message: Message, state: FSMContext):
             username=message.from_user.username or "",
             first_name=message.from_user.first_name or ""
         )
+        print(f"Bot: create_user response: {create_response}") 
         
         if "error" in create_response:
             await message.answer("❌ Произошла ошибка при регистрации. Попробуйте позже.")
@@ -35,6 +37,7 @@ async def start_handler(message: Message, state: FSMContext):
     
     # Проверяем, есть ли у пользователя пара
     pair_response = await api_client.get_user_pair(message.from_user.id)
+    print(f"Bot: get_user_pair response: {pair_response}")
     
     if "error" not in pair_response and pair_response:
         await message.answer(

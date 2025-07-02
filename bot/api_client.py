@@ -43,17 +43,22 @@ class APIClient:
         """Create new user in the system"""
         return await self._make_request(
             "POST", 
-            "/users/", 
+            "/users/register", 
             {
+                "user_id": str(telegram_id),
                 "telegram_id": telegram_id,
                 "username": username,
-                "first_name": first_name
+                "name": first_name
             }
         )
     
     async def get_user(self, telegram_id: int) -> Dict[Any, Any]:
         """Get all information about a user"""
-        return await self._make_request("GET", f"/users/{telegram_id}")
+        return await self._make_request(
+            "GET", 
+            "/users/profile",
+            params={"user_id": str(telegram_id)}  
+    )
     
     # Methods for working with pairs
     async def create_pair(self, creator_telegram_id: int) -> Dict[Any, Any]:
