@@ -15,40 +15,33 @@ class PairJoining(StatesGroup):
 
 @router.message(CommandStart())
 async def start_handler(message: Message, state: FSMContext):
-    """Обработчик команды /start"""
     await state.clear()
     
     # Проверяем, есть ли пользователь в системе
     user_response = await api_client.get_user(message.from_user.id)
-    print(f"Bot: get_user response: {user_response}")
     
-    if "error" in user_response:
-        # Создаем нового пользователя
+    if user_response.get("status") == "not_found":
         create_response = await api_client.create_user(
             telegram_id=message.from_user.id,
             username=message.from_user.username or "",
             first_name=message.from_user.first_name or ""
         )
-        print(f"Bot: create_user response: {create_response}") 
         
         if "error" in create_response:
-            await message.answer("❌ Произошла ошибка при регистрации. Попробуйте позже.")
+            await message.answer("❌ Ошибка при создании профиля. Попробуйте позже.")
             return
     
-    # Проверяем, есть ли у пользователя пара
+    # 3. Проверяем пару пользователя
     pair_response = await api_client.get_user_pair(message.from_user.id)
-    print(f"Bot: get_user_pair response: {pair_response}")
     
-    if "error" not in pair_response and pair_response:
+    if pair_response and not pair_response.get("error"):
         await message.answer(
-            f"👋 С возвращением! Вы уже в паре.\n\n"
-            f"🆔 Код пары: <code>{pair_response['code']}</code>",
+            f"👋 С возвращением! Ваш код пары: <code>{pair_response.get('code')}</code>",
             reply_markup=get_main_menu()
         )
     else:
         await message.answer(
-            "👋 Добро пожаловать в Couple Bot!\n\n"
-            "🔹 Создайте пару или присоединитесь к существующей",
+            "👋 Добро пожаловать! Создайте пару или присоединитесь к существующей.",
             reply_markup=get_join_pair_keyboard()
         )
 
