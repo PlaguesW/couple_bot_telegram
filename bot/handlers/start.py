@@ -6,7 +6,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from api_client import api_client
 from keyboards.main_menu import get_main_menu
-from keyboards.inline import get_join_pair_keyboard
+from keyboards.inline import get_pair_keyboard
 
 router = Router()
 
@@ -42,7 +42,7 @@ async def start_handler(message: Message, state: FSMContext):
     else:
         await message.answer(
             "👋 Добро пожаловать! Создайте пару или присоединитесь к существующей.",
-            reply_markup=get_join_pair_keyboard()
+            reply_markup=get_pair_keyboard()
         )
 
 @router.callback_query(F.data == "create_pair")

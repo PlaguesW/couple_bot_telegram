@@ -7,10 +7,10 @@ from aiogram.client.session.aiohttp import AiohttpSession
 
 from bot.config import BOT_TOKEN #,LOG_LEVEL
 from bot.middlewares.auth import AuthMiddleware
-from .api_client import api_client
+from bot.api_client import api_client
 
 # Импортируем все обработчики
-from bot.handlers import start, registration, pairs, ideas, events
+from bot.handlers import start, profile, dates
 from bot.handlers import dates  # Новый обработчик для свиданий
 
 async def main():
@@ -51,11 +51,12 @@ async def main():
     
     # Подключение роутеров в правильном порядке
     dp.include_router(start.router)
-    dp.include_router(registration.router)
-    dp.include_router(pairs.router)
-    dp.include_router(ideas.router)
+    # dp.include_router(registration.router)
+    # dp.include_router(pairs.router)
+    # dp.include_router(ideas.router)
     dp.include_router(dates.router)  # Добавляем обработчик свиданий
-    dp.include_router(events.router)
+    # dp.include_router(events.router)
+    dp.include_router(profile.router)
     
     # Запуск polling
     try:
