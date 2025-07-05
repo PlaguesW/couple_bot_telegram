@@ -1,152 +1,102 @@
 import aiohttp
 import asyncio
+import logging
 from typing import Optional, Dict, Any, List
-from config import API_BASE_URL, API_TIMEOUT
+from bot.config import API_URL
+
+logger = logging.getLogger(__name__)
 
 class APIClient:
-    def __init__(self):
-        self.base_url = API_BASE_URL
-        self.timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
+    def __init__(self, base_url: str = API_URL):
+        self.base_url = base_url.rstrip('/')
+        self.session = None
     
-    async def _make_request(
-        self, 
-        method: str, 
-        endpoint: str, 
-        data: Optional[Dict[Any, Any]] = None,
-        params: Optional[Dict[str, Any]] = None
-    ) -> Dict[Any, Any]:
+    async def _get_session(self):
+        if self.session is None:
+            self.session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            )
+        return self.session
+    
+    async def _request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+        session = await self._get_session()
         url = f"{self.base_url}{endpoint}"
         
-        async with aiohttp.ClientSession(timeout=self.timeout) as session:
-            try:
-                async with session.request(
-                    method=method,
-                    url=url,
-                    json=data,
-                    params=params
-                ) as response:
-                    if response.status == 200:
-                        return await response.json()
-                    elif response.status == 404:
-                        return {"status": "not_found"}  # Изменили структуру ответа
-                    else:
-                        error_text = await response.text()
-                        return {"error": f"Ошибка API: {response.status} - {error_text}"}
-            except asyncio.TimeoutError:
-                return {"error": "Timeout error"}
-            except Exception as e:
-                return {"error": f"Connection error: {str(e)}"}
+        logger.info(f"Making {method} request to {url}")
+        if data:
+            logger.info(f"Request data: {data}")
+        
+        try:
+            async with session.request(method, url, json=data) as response:
+                response_text = await response.text()
+                logger.info(f"Response status: {response.status}")
+                logger.info(f"Response text: {response_text}")
+                
+                if response.status == 404:
+                    return {"error": "Not found", "status": 404}
+                elif response.status >= 400:
+                    return {"error": f"HTTP {response.status}", "status": response.status}
+                
+                if response.content_type == 'application/json':
+                    return await response.json()
+                else:
+                    return {"data": response_text}
+        except Exception as e:
+            logger.error(f"Request failed: {str(e)}")
+            return {"error": str(e), "status": 500}
     
-    # Methods for working with users
-    async def create_user(self, telegram_id: int, username: str, first_name: str) -> Dict[Any, Any]:
-        """Create new user in the system"""
-        return await self._make_request(
-            "POST", 
-            "/user/",  # Изменили с /users/register
-            {
-                "id": telegram_id,  # Изменили с user_id/telegram_id
-                "username": username,
-                "name": first_name
-            }
-        )
+    # Методы для пользователей
+    async def get_user(self, user_id: int) -> Dict[str, Any]:
+        return await self._request("GET", f"/users/{user_id}")
     
-    async def get_user(self, telegram_id: int) -> Dict[Any, Any]:
-        """Get all information about a user"""
-        return await self._make_request(
-            "GET", 
-            f"/user/{telegram_id}",  # Изменили с /users/profile?user_id=
-            params=None  # Параметры больше не нужны
-        )
+    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._request("POST", "/users/", user_data)
     
-    # Methods for working with pairs
-    async def create_pair(self, creator_telegram_id: int) -> Dict[Any, Any]:
-        """Создание новой пары"""
-        return await self._make_request(
-            "POST", 
-            "/pair/",  # Изменили с /pairs/
-            {"creator_id": creator_telegram_id}  # Изменили параметр
-        )
+    async def update_user(self, user_id: int, user_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._request("PUT", f"/users/{user_id}", user_data)
     
-    async def join_pair(self, code: str, joiner_telegram_id: int) -> Dict[Any, Any]:
-        """Connecting to an existing pair"""
-        return await self._make_request(
-            "POST", 
-            f"/pair/{code}/join",  # Изменили с /pairs/{code}/join
-            {"joiner_id": joiner_telegram_id}  # Изменили параметр
-        )
+    # Методы для пар
+    async def get_user_pair(self, user_id: int) -> Dict[str, Any]:
+        return await self._request("GET", f"/users/{user_id}/pair")
     
-    async def get_user_pair(self, telegram_id: int) -> Dict[Any, Any]:
-        """Get pair information for a user"""
-        return await self._make_request(
-            "GET", 
-            f"/user/{telegram_id}/pair"  # Оставили как есть (но проверьте в бекенде)
-        )
+    async def create_pair(self, pair_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._request("POST", "/pairs/", pair_data)
     
-    # Methods for working with date ideas
-    async def get_random_idea(self, category: Optional[str] = None) -> Dict[Any, Any]:
-        """Get a random date idea"""
-        params = {"category": category} if category else None
-        return await self._make_request(
-            "GET", 
-            "/idea/random",  # Изменили с /ideas/random
-            params=params
-        )
+    async def join_pair(self, user_id: int, pair_code: str) -> Dict[str, Any]:
+        return await self._request("POST", f"/pairs/join", {
+            "user_id": user_id,
+            "pair_code": pair_code
+        })
     
-    async def get_ideas_by_category(self, category: str) -> Dict[Any, Any]:
-        """Get date ideas by category"""
-        return await self._make_request(
-            "GET", 
-            f"/idea/category/{category}"  # Изменили с /ideas/category/
-        )
+    # Методы для идей
+    async def get_ideas_by_category(self, category: str) -> Dict[str, Any]:
+        return await self._request("GET", f"/ideas/category/{category}")
     
-    # Methods for working with date proposals
-    async def create_date_proposal(
-        self, 
-        pair_id: int, 
-        proposer_telegram_id: int, 
-        idea_id: int,
-        custom_description: Optional[str] = None
-    ) -> Dict[Any, Any]:
-        """Create a date proposal"""
-        return await self._make_request(
-            "POST", 
-            "/date_proposal/",  # Изменили с /date_proposals/
-            {
-                "pair_id": pair_id,
-                "proposer_id": proposer_telegram_id,  # Изменили параметр
-                "idea_id": idea_id,
-                "custom_description": custom_description
-            }
-        )
+    async def get_all_ideas(self) -> Dict[str, Any]:
+        return await self._request("GET", "/ideas/")
     
-    async def respond_to_proposal(
-        self, 
-        proposal_id: int, 
-        responder_telegram_id: int, 
-        accepted: bool
-    ) -> Dict[Any, Any]:
-        """Respond to a date proposal"""
-        return await self._make_request(
-            "PUT", 
-            f"/date_proposal/{proposal_id}/respond",  # Изменили с /date_proposals/
-            {
-                "responder_id": responder_telegram_id,  # Изменили параметр
-                "accepted": accepted
-            }
-        )
+    async def create_idea(self, idea_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._request("POST", "/ideas/", idea_data)
     
-    async def get_pending_proposals(self, telegram_id: int) -> Dict[Any, Any]:
-        """Get pending date proposals for a user"""
-        return await self._make_request(
-            "GET", 
-            f"/user/{telegram_id}/pending_proposals"  # Оставили как есть
-        )
+    # Методы для событий/свиданий
+    async def get_events(self, user_id: int) -> Dict[str, Any]:
+        return await self._request("GET", f"/events/user/{user_id}")
     
-    async def get_pair_history(self, pair_id: int) -> Dict[Any, Any]:
-        """Get history of dates for a pair"""
-        return await self._make_request(
-            "GET", 
-            f"/pair/{pair_id}/history"  # Изменили с /pairs/
-        )
+    async def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._request("POST", "/events/", event_data)
+    
+    async def create_date_proposal(self, proposal_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._request("POST", "/events/proposal", proposal_data)
+    
+    async def respond_to_proposal(self, proposal_id: int, response: bool) -> Dict[str, Any]:
+        return await self._request("POST", f"/events/proposal/{proposal_id}/respond", {
+            "accepted": response
+        })
+    
+    async def close(self):
+        if self.session:
+            await self.session.close()
+            self.session = None
 
+# Глобальный экземпляр клиента
 api_client = APIClient()

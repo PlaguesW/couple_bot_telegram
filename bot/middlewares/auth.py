@@ -1,50 +1,63 @@
-from typing import Callable, Dict, Any, Awaitable
+from typing import Callable, Dict, Any, Awaitable, Union
 from aiogram import BaseMiddleware
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, TelegramObject
+from ..api_client import api_client
+import logging
 
-from api_client import api_client
+logger = logging.getLogger(__name__)
 
 class AuthMiddleware(BaseMiddleware):
-    """Middleware for user authentication in the bot"""
+    """Middleware для аутентификации пользователей"""
     
     async def __call__(
         self,
-        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-        event: Message | CallbackQuery,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: Union[Message, CallbackQuery],
         data: Dict[str, Any]
     ) -> Any:
-        # Check if the event is a message or callback query
-        user_response = await api_client.get_user(event.from_user.id)
-        if "error" in user_response:
-            # If there is an error in the response, send an error message
-            return
-        # Add user information to the data dictionary
-        data['user'] = user_response
-        # Continue processing the event with the handler
+        
+        # Получаем ID пользователя из события
+        user_id = event.from_user.id
+        user = event.from_user
+        
+        logger.info(f"Auth middleware for user {user_id}")
+        
+        try:
+            # Проверяем существование пользователя в базе
+            user_response = await api_client.get_user(user_id)
+            
+            if "error" in user_response and user_response.get("status") == 404:
+                logger.info(f"User {user_id} not found, creating new user")
+                
+                # Пользователь не найден, создаем нового
+                user_data = {
+                    "user_id": user_id,
+                    "telegram_id": user_id,
+                    "name": user.full_name or "Пользователь",
+                    "username": user.username or "",
+                    "created_at": None  # Будет установлено на сервере
+                }
+                
+                create_response = await api_client.create_user(user_data)
+                
+                if "error" in create_response:
+                    logger.error(f"Failed to create user {user_id}: {create_response}")
+                    # Не блокируем выполнение, если не удалось создать пользователя
+                else:
+                    logger.info(f"User {user_id} created successfully")
+            
+            elif "error" not in user_response:
+                logger.info(f"User {user_id} found in database")
+            else:
+                logger.error(f"Error checking user {user_id}: {user_response}")
+        
+        except Exception as e:
+            logger.error(f"Error in auth middleware for user {user_id}: {str(e)}")
+            # Не блокируем выполнение при ошибках
+        
+        # Добавляем информацию о пользователе в данные
+        data["user_id"] = user_id
+        data["user"] = user
+        
+        # Продолжаем выполнение обработчика
         return await handler(event, data)
-    async def on_pre_process_message(
-        self, message: Message, data: Dict[str, Any]
-    ) -> None:
-        """Check authorization for messages"""
-        await self.__call__(self.on_pre_process_message_handler, message, data)
-    async def on_pre_process_callback_query(
-        self, callback_query: CallbackQuery, data: Dict[str, Any]
-    ) -> None:
-        """Check authorization for callback queries"""
-        await self.__call__(self.on_pre_process_callback_query_handler, callback_query, data)
-    async def on_pre_process_message_handler(
-        self, message: Message, data: Dict[str, Any]
-    ) -> None:
-        """Message handler for processing messages"""
-        # Here needs to be added logic for processing messages
-    async def on_pre_process_callback_query_handler(
-        self, callback_query: CallbackQuery, data: Dict[str, Any]
-    ) -> None:
-        """Callback query handler for processing callback queries"""
-        # Here needs to be added logic for processing callback queries
-        pass
-# Регистрация middleware в приложении
-def setup_middleware(dp):
-    """Function to set up middleware in the bot"""
-    dp.update.middleware(AuthMiddleware())
-    return dp

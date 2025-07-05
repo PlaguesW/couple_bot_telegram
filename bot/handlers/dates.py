@@ -1,154 +1,212 @@
+import asyncio
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from api_client import api_client
-from keyboards.inline import (
-    get_date_categories_keyboard, 
-    get_proposal_response_keyboard,
-    get_date_actions_keyboard
-)
+from bot.keyboards.inline import get_categories_keyboard, get_ideas_keyboard, get_date_proposal_keyboard
+from ..api_client import api_client
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
-class DateProposal(StatesGroup):
-    writing_custom_description = State()
+class DateStates(StatesGroup):
+    choosing_category = State()
+    viewing_ideas = State()
+    creating_proposal = State()
 
-@router.message(F.text == "💡 Получить идею")
-async def get_random_idea(message: Message):
-    """Получение случайной идеи для свидания"""
-    response = await api_client.get_random_idea()
+@router.message(F.text == "💡 Получить идеи")
+async def get_ideas_menu(message: Message, state: FSMContext):
+    """Показать меню категорий идей"""
+    await state.set_state(DateStates.choosing_category)
     
-    if "error" in response:
-        await message.answer(f"❌ {response['error']}")
-        return
-    
-    idea = response
+    keyboard = get_categories_keyboard()
     await message.answer(
-        f"💡 <b>{idea['title']}</b>\n\n"
-        f"📝 {idea['description']}\n\n"
-        f"🏷 Категория: {idea['category']}\n"
-        f"💰 Бюджет: {idea['budget_level']}",
-        reply_markup=get_date_actions_keyboard(idea['id'])
-    )
-
-@router.message(F.text == "📂 Идеи по категориям")
-async def show_categories(message: Message):
-    """Показ категорий идей"""
-    await message.answer(
-        "🗂 Выберите категорию:",
-        reply_markup=get_date_categories_keyboard()
+        "🎯 Выберите категорию для получения идей:",
+        reply_markup=keyboard
     )
 
 @router.callback_query(F.data.startswith("category_"))
-async def show_category_ideas(callback: CallbackQuery):
-    """Показ идей по выбранной категории"""
-    category = callback.data.split("category_")[1]
+async def show_category_ideas(callback_query: CallbackQuery, state: FSMContext):
+    """Показать идеи выбранной категории"""
+    await callback_query.answer()
     
-    response = await api_client.get_ideas_by_category(category)
+    category = callback_query.data.split("_")[1]
+    logger.info(f"Requesting ideas for category: {category}")
     
-    if "error" in response:
-        await callback.answer(f"❌ {response['error']}")
-        return
-    
-    if not response:
-        await callback.message.edit_text("😔 В этой категории пока нет идей")
-        return
-    
-    ideas_text = f"📂 <b>Категория: {category}</b>\n\n"
-    for i, idea in enumerate(response[:5], 1):  # Показываем только 5 идей
-        ideas_text += f"{i}. <b>{idea['title']}</b>\n{idea['description'][:100]}...\n\n"
-    
-    if len(response) > 5:
-        ideas_text += f"И еще {len(response) - 5} идей..."
-    
-    await callback.message.edit_text(ideas_text)
+    try:
+        response = await api_client.get_ideas_by_category(category)
+        logger.info(f"API response: {response}")
+        
+        # Проверяем наличие ошибки
+        if "error" in response:
+            await callback_query.message.answer(
+                "❌ Произошла ошибка при получении идей. Попробуйте позже."
+            )
+            return
+        
+        # Обрабатываем ответ от API
+        # Ответ может быть в разных форматах, проверяем все варианты
+        ideas = []
+        if isinstance(response, dict):
+            ideas = response.get("ideas", response.get("data", []))
+        elif isinstance(response, list):
+            ideas = response
+        
+        if not ideas:
+            await callback_query.message.answer(
+                f"🤷‍♂️ Идеи для категории '{category}' не найдены."
+            )
+            return
+        
+        # Ограничиваем количество идей
+        limited_ideas = ideas[:5] if len(ideas) > 5 else ideas
+        
+        # Формируем текст ответа
+        category_names = {
+            "romantic": "Романтические",
+            "active": "Активные",
+            "home": "Домашние",
+            "creative": "Творческие",
+            "adventure": "Приключения"
+        }
+        
+        category_name = category_names.get(category, category.capitalize())
+        text = f"💡 {category_name} идеи:\n\n"
+        
+        for i, idea in enumerate(limited_ideas, 1):
+            if isinstance(idea, dict):
+                title = idea.get("title", "Без названия")
+                description = idea.get("description", "Без описания")
+                text += f"{i}. **{title}**\n{description}\n\n"
+            else:
+                text += f"{i}. {str(idea)}\n\n"
+        
+        # Добавляем кнопки для действий
+        keyboard = get_ideas_keyboard(category)
+        
+        await callback_query.message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
+        await state.set_state(DateStates.viewing_ideas)
+        
+    except Exception as e:
+        logger.error(f"Error in show_category_ideas: {str(e)}")
+        await callback_query.message.answer(
+            "❌ Произошла ошибка при обработке запроса."
+        )
 
 @router.callback_query(F.data.startswith("propose_"))
-async def propose_date(callback: CallbackQuery):
-    """Предложить свидание партнеру"""
-    idea_id = int(callback.data.split("propose_")[1])
+async def propose_date(callback_query: CallbackQuery, state: FSMContext):
+    """Предложить паре пойти на свидание"""
+    await callback_query.answer()
     
-    # Получаем пару пользователя
-    pair_response = await api_client.get_user_pair(callback.from_user.id)
+    category = callback_query.data.split("_")[1]
+    user_id = callback_query.from_user.id
     
-    if "error" in pair_response:
-        await callback.answer("❌ Вы не состоите в паре")
-        return
-    
-    # Создаем предложение свидания
-    proposal_response = await api_client.create_date_proposal(
-        pair_id=pair_response['id'],
-        proposer_telegram_id=callback.from_user.id,
-        idea_id=idea_id
-    )
-    
-    if "error" in proposal_response:
-        await callback.answer(f"❌ {proposal_response['error']}")
-        return
-    
-    await callback.message.edit_text(
-        "✅ Предложение отправлено партнеру!\n\n"
-        "Ожидайте ответа 💕"
-    )
-    
-    # Здесь можно добавить отправку уведомления партнеру
-
-@router.message(F.text == "📋 Мои предложения")
-async def show_pending_proposals(message: Message):
-    """Показ входящих предложений"""
-    response = await api_client.get_pending_proposals(message.from_user.id)
-    
-    if "error" in response:
-        await message.answer(f"❌ {response['error']}")
-        return
-    
-    if not response:
-        await message.answer("📭 У вас нет новых предложений свиданий")
-        return
-    
-    for proposal in response:
-        idea = proposal['idea']
-        proposer = proposal['proposer']
+    try:
+        # Получаем информацию о паре пользователя
+        pair_response = await api_client.get_user_pair(user_id)
         
-        text = (
-            f"💌 <b>Предложение от {proposer['first_name']}</b>\n\n"
-            f"💡 <b>{idea['title']}</b>\n"
-            f"📝 {idea['description']}\n\n"
-            f"🏷 Категория: {idea['category']}\n"
-            f"💰 Бюджет: {idea['budget_level']}"
+        if "error" in pair_response:
+            await callback_query.message.answer(
+                "❌ Вы не состоите в паре. Сначала создайте пару или присоединитесь к существующей."
+            )
+            return
+        
+        # Получаем идеи категории для предложения
+        ideas_response = await api_client.get_ideas_by_category(category)
+        
+        if "error" in ideas_response:
+            await callback_query.message.answer(
+                "❌ Не удалось получить идеи для предложения."
+            )
+            return
+        
+        ideas = ideas_response.get("ideas", ideas_response.get("data", []))
+        if not ideas:
+            await callback_query.message.answer(
+                "❌ Нет доступных идей для предложения."
+            )
+            return
+        
+        # Берем случайную идею или первую
+        idea = ideas[0] if ideas else {"title": "Свидание", "description": f"Свидание в категории {category}"}
+        idea_id = idea.get("id") if isinstance(idea, dict) else None
+        
+        # Создаем предложение о свидании
+        proposal_data = {
+            "proposer_id": user_id,
+            "pair_id": pair_response.get("id"),
+            "idea_id": idea_id,
+            "idea_title": idea.get("title", "Свидание") if isinstance(idea, dict) else str(idea),
+            "message": f"Предлагаю пойти на свидание: {idea.get('title', 'Свидание')}"
+        }
+        
+        proposal_response = await api_client.create_date_proposal(proposal_data)
+        
+        if "error" in proposal_response:
+            await callback_query.message.answer(
+                "❌ Не удалось создать предложение о свидании."
+            )
+            return
+        
+        await callback_query.message.answer(
+            f"✅ Предложение о свидании отправлено!\n\n"
+            f"💡 Идея: {idea.get('title', 'Свидание')}\n"
+            f"📝 Описание: {idea.get('description', 'Без описания')}\n\n"
+            f"Ждем ответа от вашего партнера!"
         )
         
-        await message.answer(
-            text,
-            reply_markup=get_proposal_response_keyboard(proposal['id'])
+    except Exception as e:
+        logger.error(f"Error in propose_date: {str(e)}")
+        await callback_query.message.answer(
+            "❌ Произошла ошибка при создании предложения."
         )
 
-@router.callback_query(F.data.startswith("accept_") | F.data.startswith("decline_"))
-async def respond_to_proposal(callback: CallbackQuery):
-    """Ответ на предложение свидания"""
-    action, proposal_id = callback.data.split("_")
-    proposal_id = int(proposal_id)
-    accepted = action == "accept"
+@router.callback_query(F.data.startswith("proposal_"))
+async def handle_proposal_response(callback_query: CallbackQuery, state: FSMContext):
+    """Обработка ответа на предложение о свидании"""
+    await callback_query.answer()
     
-    response = await api_client.respond_to_proposal(
-        proposal_id=proposal_id,
-        responder_telegram_id=callback.from_user.id,
-        accepted=accepted
+    action = callback_query.data.split("_")[1]  # accept или decline
+    proposal_id = int(callback_query.data.split("_")[2])
+    
+    try:
+        accepted = action == "accept"
+        response = await api_client.respond_to_proposal(proposal_id, accepted)
+        
+        if "error" in response:
+            await callback_query.message.answer(
+                "❌ Не удалось обработать ответ на предложение."
+            )
+            return
+        
+        if accepted:
+            await callback_query.message.answer(
+                "✅ Вы приняли предложение о свидании!\n"
+                "🎉 Отлично проведите время вместе!"
+            )
+        else:
+            await callback_query.message.answer(
+                "❌ Вы отклонили предложение о свидании.\n"
+                "Может быть, в следующий раз?"
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in handle_proposal_response: {str(e)}")
+        await callback_query.message.answer(
+            "❌ Произошла ошибка при обработке ответа."
+        )
+
+@router.callback_query(F.data == "back_to_categories")
+async def back_to_categories(callback_query: CallbackQuery, state: FSMContext):
+    """Вернуться к выбору категорий"""
+    await callback_query.answer()
+    await state.set_state(DateStates.choosing_category)
+    
+    keyboard = get_categories_keyboard()
+    await callback_query.message.edit_text(
+        "🎯 Выберите категорию для получения идей:",
+        reply_markup=keyboard
     )
-    
-    if "error" in response:
-        await callback.answer(f"❌ {response['error']}")
-        return
-    
-    if accepted:
-        await callback.message.edit_text(
-            "✅ Предложение принято!\n\n"
-            "Отличного свидания! 💕"
-        )
-    else:
-        await callback.message.edit_text(
-            "❌ Предложение отклонено\n\n"
-            "Возможно, в следующий раз найдется что-то подходящее 😊"
-        )
