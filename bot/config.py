@@ -2,7 +2,6 @@ import os
 from pydantic_settings import BaseSettings
 from typing import List
 
-
 class Settings(BaseSettings):
     """Настройки бота"""
     
@@ -22,7 +21,6 @@ class Settings(BaseSettings):
     
     REDIS_URL: str = "redis://localhost:6379"
     
-    
     # Настройки для развертывания
     WEBHOOK_URL: str = ""
     WEBHOOK_PATH: str = "/webhook"
@@ -32,6 +30,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        env_ignore_empty = True
     
     @property
     def api_url(self) -> str:

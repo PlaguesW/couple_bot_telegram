@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from services.api_client import get_ideas, add_idea, update_idea, delete_idea
-from keyboards.inline import idea_actions_keyboard
+from keyboards.inline import idea_action_keyboard
 
 router = Router()
 
@@ -23,7 +23,7 @@ async def show_ideas(message: Message):
         await message.answer(
             f"📝 *{idea['title']}*\n{idea['description']}",
             parse_mode="Markdown",
-            reply_markup=idea_actions_keyboard(idea_id=idea['id'])
+            reply_markup=idea_action_keyboard(idea_id=idea['id'])
         )
 
 @router.callback_query(F.data.startswith("idea_"))
