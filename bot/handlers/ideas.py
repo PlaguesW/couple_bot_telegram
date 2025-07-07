@@ -30,12 +30,21 @@ async def show_ideas(message: Message):
 async def idea_action_handler(callback: CallbackQuery, state: FSMContext):
     action, idea_id = callback.data.split(':')
     await state.update_data(idea_id=int(idea_id))
+    
     if action == "idea_edit":
         await state.set_state(IdeaStates.edit_title)
         await callback.message.answer("Введите новый заголовок:")
     elif action == "idea_delete":
         await delete_idea(callback.from_user.id, int(idea_id))
         await callback.message.answer("Идея удалена ✅")
+    elif action == "idea_like":  # Добавить
+        await callback.message.edit_text("❤️ Идея понравилась!")
+    elif action == "idea_dislike":  # Добавить
+        await callback.message.edit_text("👎 Идея не понравилась")
+    elif action == "idea_create_date":  # Добавить
+        await callback.message.edit_text("📅 Создание свидания на основе этой идеи...")
+        # Здесь может быть логика создания свидания
+    
     await callback.answer()
 
 @router.message(F.text == "/idea_add")
