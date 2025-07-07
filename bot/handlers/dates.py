@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
-from api_client import propose_date, respond_to_date, get_history
+from services.api_client import propose_date, respond_to_date, get_history
 from keyboards.inline import respond_keyboard
 
 router = Router()

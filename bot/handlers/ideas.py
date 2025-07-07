@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
-from api_client import get_ideas, add_idea, update_idea, delete_idea
+from services.api_client import get_ideas, add_idea, update_idea, delete_idea
 from keyboards.inline import idea_actions_keyboard
 
 router = Router()

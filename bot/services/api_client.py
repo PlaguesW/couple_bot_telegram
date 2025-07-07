@@ -118,6 +118,22 @@ class APIClient:
         }
         return await self._make_request("POST", "/ideas/", data=data)
     
+    async def update_idea(self, idea_id: int, title: str = None, description: str = None, category: str = None) -> Dict[str, Any]:
+        """Обновить идею"""
+        data = {}
+        if title:
+            data["title"] = title
+        if description:
+            data["description"] = description
+        if category:
+            data["category"] = category
+        
+        return await self._make_request("PATCH", f"/ideas/{idea_id}", data=data)
+    
+    async def delete_idea(self, idea_id: int) -> Dict[str, Any]:
+        """Удалить идею"""
+        return await self._make_request("DELETE", f"/ideas/{idea_id}")
+    
     async def get_random_idea(self, category: str = None) -> Dict[str, Any]:
         """Получить случайную идею"""
         params = {"category": category} if category else {}
@@ -181,3 +197,77 @@ class APIError(Exception):
 
 # Глобальный экземпляр клиента
 api_client = APIClient()
+
+# Функции-обертки для совместимости с текущим кодом handlers
+async def get_ideas(category: str = None, limit: int = 10) -> List[Dict[str, Any]]:
+    """Получить список идей"""
+    async with api_client as client:
+        return await client.get_ideas(category, limit)
+
+async def add_idea(title: str, description: str, category: str) -> Dict[str, Any]:
+    """Добавить новую идею"""
+    async with api_client as client:
+        return await client.create_idea(title, description, category)
+
+async def update_idea(idea_id: int, title: str = None, description: str = None, category: str = None) -> Dict[str, Any]:
+    """Обновить идею"""
+    async with api_client as client:
+        return await client.update_idea(idea_id, title, description, category)
+
+async def delete_idea(idea_id: int) -> Dict[str, Any]:
+    """Удалить идею"""
+    async with api_client as client:
+        return await client.delete_idea(idea_id)
+
+async def get_random_idea(category: str = None) -> Dict[str, Any]:
+    """Получить случайную идею"""
+    async with api_client as client:
+        return await client.get_random_idea(category)
+
+# Функции-обертки для работы с пользователями
+async def register_user(telegram_id: int, name: str, username: str = None) -> Dict[str, Any]:
+    """Регистрация нового пользователя"""
+    async with api_client as client:
+        return await client.register_user(telegram_id, name, username)
+
+async def get_user_by_telegram_id(telegram_id: int) -> Dict[str, Any]:
+    """Получить пользователя по Telegram ID"""
+    async with api_client as client:
+        return await client.get_user_by_telegram_id(telegram_id)
+
+# Функции-обертки для работы с парами
+async def create_couple(user_id: int) -> Dict[str, Any]:
+    """Создать новую пару"""
+    async with api_client as client:
+        return await client.create_couple(user_id)
+
+async def join_couple(user_id: int, invite_code: str) -> Dict[str, Any]:
+    """Присоединиться к паре по коду"""
+    async with api_client as client:
+        return await client.join_couple(user_id, invite_code)
+
+async def get_user_couple(user_id: int) -> Dict[str, Any]:
+    """Получить пару пользователя"""
+    async with api_client as client:
+        return await client.get_user_couple(user_id)
+
+# Функции-обертки для работы с событиями/свиданиями
+async def create_date_proposal(couple_id: int, idea_id: int, proposer_id: int, scheduled_date: str = None) -> Dict[str, Any]:
+    """Создать предложение свидания"""
+    async with api_client as client:
+        return await client.create_date_proposal(couple_id, idea_id, proposer_id, scheduled_date)
+
+async def respond_to_proposal(event_id: int, response: str, user_id: int) -> Dict[str, Any]:
+    """Ответить на предложение свидания"""
+    async with api_client as client:
+        return await client.respond_to_proposal(event_id, response, user_id)
+
+async def get_date_history(couple_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+    """Получить историю свиданий пары"""
+    async with api_client as client:
+        return await client.get_date_history(couple_id, limit)
+
+async def get_pending_proposals(couple_id: int) -> List[Dict[str, Any]]:
+    """Получить ожидающие предложения"""
+    async with api_client as client:
+        return await client.get_pending_proposals(couple_id)

@@ -4,7 +4,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from loguru import logger
 
-from api_client import api_client, APIError
+from services.api_client import api_client, APIError
 from states import CoupleStates
 from keyboards.inline import (
     couple_setup_keyboard, 
