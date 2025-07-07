@@ -13,14 +13,31 @@ router = Router()
 
 
 @router.message(Command("start"))
-async def cmd_start(message: Message, is_registered: bool, user_info: dict = None, **kwargs):
+async def cmd_start(
+    message: Message, 
+    is_registered: bool, 
+    user: dict = None,
+    has_couple: bool = False,
+    couple: dict = None,
+    user_info: dict = None,
+    **kwargs
+):
     """Команда /start"""
     if is_registered:
-        await message.answer(
-            "👋 Добро пожаловать обратно!\n\n"
-            "Выберите, что хотите сделать:",
-            reply_markup=main_menu_keyboard()
-        )
+        if has_couple:
+            await message.answer(
+                f"👋 Добро пожаловать обратно!\n\n"
+                f"Вы в паре с {couple.get('partner_name', 'вашим партнером')}!\n\n"
+                f"Выберите, что хотите сделать:",
+                reply_markup=main_menu_keyboard()
+            )
+        else:
+            await message.answer(
+                "👋 Добро пожаловать обратно!\n\n"
+                "Для полноценной работы бота найдите свою пару!\n\n"
+                "Выберите, что хотите сделать:",
+                reply_markup=main_menu_keyboard()
+            )
     else:
         await message.answer(
             "🎉 Добро пожаловать в Couple Bot!\n\n"

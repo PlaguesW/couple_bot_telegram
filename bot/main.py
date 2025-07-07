@@ -7,10 +7,10 @@ from aiogram.enums.parse_mode import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 from handlers import start, help, couple, ideas, dates
+from middlewares.auth import AuthMiddleware
 
 # Загружаем переменные окружения
 load_dotenv()
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN not found in environment")
@@ -28,8 +28,15 @@ bot = Bot(
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+# Регистрация middleware
+def register_middlewares():
+    """Регистрация всех middleware"""
+    dp.message.middleware(AuthMiddleware())
+    dp.callback_query.middleware(AuthMiddleware())
+
 # Регистрация всех роутеров
 def register_handlers():
+    """Регистрация всех роутеров"""
     dp.include_router(start.router)
     dp.include_router(help.router)
     dp.include_router(couple.router)
@@ -38,15 +45,15 @@ def register_handlers():
 
 async def main():
     """Основная функция запуска бота"""
+    register_middlewares()
     register_handlers()
+    
     logger.info("Bot is starting...")
     
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        
         # Запускаем бота
         await dp.start_polling(bot)
-        
     except Exception as e:
         logger.error(f"Ошибка при запуске бота: {e}")
     finally:
