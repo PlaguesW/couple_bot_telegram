@@ -2,7 +2,7 @@ import aiohttp
 import asyncio
 from typing import Dict, Any, Optional, List
 from loguru import logger
-from .config import settings
+from config import settings
 
 
 class APIClient:

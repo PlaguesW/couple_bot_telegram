@@ -4,16 +4,16 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from loguru import logger
 
-from ..api_client import api_client, APIError
-from ..states import CoupleStates
-from ..keyboards.inline import (
+from api_client import api_client, APIError
+from states import CoupleStates
+from keyboards.inline import (
     couple_setup_keyboard, 
     main_menu_keyboard, 
     couple_info_keyboard,
     confirmation_keyboard,
     back_keyboard
 )
-from ..keyboards.reply import cancel_keyboard
+from keyboards.reply import cancel_keyboard
 
 router = Router()
 

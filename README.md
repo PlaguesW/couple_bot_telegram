@@ -1,35 +1,53 @@
-# Couple_bot_telegram
-# Couple Bot - Бот для романтических свиданий 💕
+# Couple Bot Telegram
 
+Telegram-бот для планирования свиданий, взаимодействующий с REST API приложения [Couple Bot Backend](https://github.com/PlaguesW/couple_bot_backend).
 
-### Структура проекта
+---
+
+## 🚀 Возможности
+
+- Регистрация пользователя / начальное приветствие  
+- Создание пары и присоединение по коду приглашения  
+- Просмотр списка, добавление, редактирование и удаление идей  
+- Предложение свидания и ответ на него (принятие/отклонение)  
+- Просмотр истории ваших свиданий  
+
+---
+
+## 🧱 Структура проекта
 ```
 couple_bot_telegram/
 ├── bot/
 │   ├── __init__.py
-│   ├── main.py              # Точка входа приложения
-│   ├── config.py            # Конфигурация бота
-│   ├── api_client.py        # Клиент для работы с backend API
-│   ├── states.py            # Состояния для FSM
-│   ├── handlers/            # Обработчики команд и сообщений
+│   ├── main.py              
+│   ├── config.py           
+│   ├── api_client.py        
+│   ├── states.py            
+│   ├── handlers/            
 │   │   ├── __init__.py
-│   │   ├── start.py         # Команда /start и регистрация
-│   │   ├── couple.py        # Управление парами
-│   │   ├── ideas.py         # Работа с идеями
-│   │   ├── dates.py         # Предложения свиданий
-│   │   └── help.py          # Помощь и информация
-│   ├── keyboards/           # Клавиатуры
+│   │   ├── start.py         
+│   │   ├── couple.py        
+│   │   ├── ideas.py         
+│   │   ├── dates.py        
+│   │   └── help.py          
+│   ├── keyboards/           
 │   │   ├── __init__.py
-│   │   ├── inline.py        # Inline клавиатуры
-│   │   └── reply.py         # Reply клавиатуры
-│   ├── middlewares/         # Middleware для бота
+│   │   ├── inline.py        
+│   │   └── reply.py         
+│   ├── middlewares/         
 │   │   ├── __init__.py
-│   │   └── auth.py          # Аутентификация пользователей
-│   └── utils/               # Утилиты
+│   │   └── auth.py          
+│   └── utils/               
 │       ├── __init__.py
-│       └── helpers.py       # Вспомогательные функции
+│       └── helpers.py       
 ├── requirements.txt
 ├── .env.example
 ├── README.md
-└── docker-compose.yml       # Для запуска всего проекта
+└── docker-compose.yml       
 ```
+## ⚙️ Установка и запуск
+
+1. Клонируй репозиторий:
+```bash
+git clone https://github.com/PlaguesW/couple_bot_telegram.git
+cd couple_bot_telegram

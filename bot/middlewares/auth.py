@@ -3,7 +3,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
 from loguru import logger
 
-from ..api_client import api_client, APIError
+from api_client import api_client, APIError
 
 
 class AuthMiddleware(BaseMiddleware):
