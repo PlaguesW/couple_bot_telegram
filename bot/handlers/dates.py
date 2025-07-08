@@ -32,13 +32,13 @@ async def date_propose_send(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("Пожалуйста, введите корректный ID идеи (число):")
 
-@router.message(DateStates.date_choice)
-async def date_propose_confirm(message: Message, state: FSMContext):
+@router.callback_query(F.data.startswith("propose_idea_"))
+async def propose_idea_handler(callback: CallbackQuery, state: FSMContext):
     try:
-        data = await state.get_data()
+        idea_id = int(callback.data.split("_")[2])  
         
         # Получаем информацию о пользователе
-        user_data = await get_user_by_telegram_id(message.from_user.id)
+        user_data = await get_user_by_telegram_id(callback.from_user.id)
         user_id = user_data["id"]
         
         # Получаем информацию о паре
@@ -48,17 +48,16 @@ async def date_propose_confirm(message: Message, state: FSMContext):
         # Создаем предложение свидания
         await create_date_proposal(
             couple_id=couple_id,
-            idea_id=data["idea_id"],
-            proposer_id=user_id,
-            scheduled_date=message.text
+            idea_id=idea_id,
+            proposer_id=user_id
         )
         
-        await message.answer("Предложение отправлено ✅")
-        await state.clear()
+        await callback.message.answer("Предложение отправлено ✅")
+        await callback.answer()
         
     except Exception as e:
-        await message.answer(f"Ошибка при создании предложения: {str(e)}")
-        await state.clear()
+        await callback.message.answer(f"Ошибка при создании предложения: {str(e)}")
+        await callback.answer()
 
 @router.message(F.text == "/date_history")
 async def date_history(message: Message):

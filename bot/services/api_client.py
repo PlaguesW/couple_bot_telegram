@@ -53,7 +53,7 @@ class APIClient:
             logger.error(f"Request failed: {e}")
             raise APIError(f"Request failed: {e}")
     
-    # Методы для работы с пользователями
+    #* Users
     async def register_user(self, telegram_id: int, name: str, username: str = None) -> Dict[str, Any]:
         """Регистрация нового пользователя"""
         data = {
@@ -71,7 +71,7 @@ class APIClient:
         """Получить пользователя по Telegram ID"""
         return await self._make_request("GET", f"/users/telegram/{telegram_id}")
     
-    # Методы для работы с парами
+    #* Pairs
     async def create_couple(self, user_id: int) -> Dict[str, Any]:
         """Создать новую пару"""
         data = {"user_id": user_id}
@@ -97,7 +97,7 @@ class APIClient:
         """Получить пару пользователя"""
         return await self._make_request("GET", f"/couples/user/{user_id}")
     
-    # Методы для работы с идеями
+    #* Ideas
     async def get_ideas(self, category: str = None, limit: int = 10) -> List[Dict[str, Any]]:
         """Получить список идей"""
         params = {"limit": limit}
@@ -139,7 +139,7 @@ class APIClient:
         params = {"category": category} if category else {}
         return await self._make_request("GET", "/ideas/random", params=params)
     
-    # Методы для работы с событиями/свиданиями
+    #* Dates/Events
     async def create_date_proposal(
         self,
         couple_id: int,
